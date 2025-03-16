@@ -11,9 +11,9 @@ from tabulate import tabulate
 # Set seed for reproducibility
 DetectorFactory.seed = 0
 
-# Hardcoded file path that matches your directory structure
-# Change this to match the exact location of your feedback data file
-FILE_PATH = os.path.join(os.path.dirname(__file__), "C:\Users\jaina\OneDrive\Desktop\New folder (3)\Survey on Interest in Bhajan and Spiritual Sessions.csv")
+# Assume the file is in the same directory as the script
+# This will work whether you're running from a local copy of the GitHub repository
+FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "feedback.csv")
 
 def analyze_sentiment(text):
     """Analyzes the sentiment of a given text."""
@@ -116,14 +116,14 @@ def main():
     try:
         # Try with the hardcoded path first
         if os.path.exists(FILE_PATH):
-            print(f"\n✅ Found file at hardcoded path: {FILE_PATH}")
+            print(f"\n✅ Found file at path: {FILE_PATH}")
             process_feedback(FILE_PATH)
         else:
-            # Fall back to searching for Excel/CSV files in the current directory
+            # Look for all potential feedback files in the current directory
             print(f"\n⚠️ File not found at '{FILE_PATH}'")
             print("🔍 Searching for feedback files in the current directory...")
             
-            current_dir = os.path.dirname(__file__)
+            current_dir = os.path.dirname(os.path.abspath(__file__))
             excel_files = [f for f in os.listdir(current_dir) if f.endswith('.xlsx') or f.endswith('.csv')]
             
             if excel_files:
