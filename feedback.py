@@ -1,6 +1,4 @@
 import pandas as pd
-import tkinter as tk
-from tkinter import filedialog
 import zipfile
 import os
 from langdetect import detect, DetectorFactory
@@ -8,19 +6,23 @@ from langdetect.lang_detect_exception import LangDetectException
 from deep_translator import GoogleTranslator
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from tabulate import tabulate  
+from tabulate import tabulate
 
+# Set seed for reproducibility
+DetectorFactory.seed = 0
 
-DetectorFactory.seed = 0  
+# Hardcoded file path that matches your directory structure
+# Change this to match the exact location of your feedback data file
+FILE_PATH = os.path.join(os.path.dirname(__file__), "C:\Users\jaina\OneDrive\Desktop\New folder (3)\Survey on Interest in Bhajan and Spiritual Sessions.csv")
 
 def analyze_sentiment(text):
     """Analyzes the sentiment of a given text."""
     if pd.isna(text) or str(text).strip() == "":
-        return "Neutral", 0.0  
+        return "Neutral", 0.0
 
-    text = str(text).strip().lower()  
-
+    text = str(text).strip().lower()
     
+    # Quick checks for common responses
     if text in ["no", "nah", "not really", "never"]:
         return "Negative", -0.3
     if text in ["yes", "yeah", "sure", "definitely"]:
@@ -32,12 +34,12 @@ def analyze_sentiment(text):
             translator = GoogleTranslator(source=lang, target='en')
             text = translator.translate(text)
     except LangDetectException:
-        pass  
+        pass
 
     analyzer = SentimentIntensityAnalyzer()
     vader_score = analyzer.polarity_scores(text)['compound']
     textblob_score = TextBlob(text).sentiment.polarity
-    sentiment_score = (vader_score + textblob_score) / 2  
+    sentiment_score = (vader_score + textblob_score) / 2
 
     if sentiment_score >= 0.7:
         return "Very Positive", sentiment_score
@@ -53,6 +55,7 @@ def analyze_sentiment(text):
 def load_file(file_path):
     """Loads data from Excel, CSV, or ZIP files."""
     try:
+        print(f"\n📂 Loading file from: {file_path}")
         if file_path.endswith(".xlsx"):
             return pd.read_excel(file_path)
         elif file_path.endswith(".csv"):
@@ -64,16 +67,16 @@ def load_file(file_path):
                     print("\n❌ No valid Excel or CSV file found in the ZIP archive.")
                     return None
                 
-                extracted_file = zip_files[0]  
+                extracted_file = zip_files[0]
                 zip_ref.extract(extracted_file)
-                file_path = extracted_file  
+                file_path = extracted_file
 
                 if file_path.endswith(".xlsx"):
                     return pd.read_excel(file_path)
                 else:
                     return pd.read_csv(file_path)
         else:
-            print("\n❌ Unsupported file format. Please select an Excel, CSV, or ZIP file.")
+            print("\n❌ Unsupported file format. Please provide an Excel, CSV, or ZIP file.")
             return None
     except Exception as e:
         print(f"\n❌ Error loading file: {str(e)}")
@@ -86,40 +89,63 @@ def process_feedback(file_path):
         print("\n❌ Error: The file is empty or invalid.")
         return
 
-    df_filtered = df.drop(columns=['Timestamp', 'Name', 'Roll No', 'Class'], errors='ignore')
-
+    print(f"\n✅ Successfully loaded file with {len(df)} records and {len(df.columns)} columns.")
     
+    df_filtered = df.drop(columns=['Timestamp', 'Name', 'Roll No', 'Class'], errors='ignore')
+    
+    print(f"\n📊 Analyzing {len(df_filtered.columns)} questions...")
+
     for column in df_filtered.columns:
         print(f"\n🔹 **Question: {column}** 🔹\n")
 
         results = []
-        for text in df_filtered[column].dropna().astype(str): 
+        for text in df_filtered[column].dropna().astype(str):
             sentiment, score = analyze_sentiment(text)
             results.append([text, sentiment, round(score, 2)])
 
-        
         if results:
             print(tabulate(results, headers=["Feedback", "Sentiment", "Score"], tablefmt="fancy_grid", showindex=False))
         else:
             print("No feedback provided for this question.")
 
-def select_file():
-    """Opens file dialog to select an Excel, CSV, or ZIP file."""
-    file_path = filedialog.askopenfilename(
-        title="Select a file",
-        filetypes=[("Supported Files", "*.xlsx;*.csv;*.zip"), ("Excel Files", "*.xlsx"), ("CSV Files", "*.csv"), ("ZIP Files", "*.zip")]
-    )
-    
-    if file_path:
-        process_feedback(file_path)
-
 def main():
-    """Creates Tkinter GUI for file selection."""
-    root = tk.Tk()
-    root.withdraw()  
+    """Main function with error handling and user feedback."""
+    print("\n🔍 Starting Feedback Sentiment Analysis")
+    print("=" * 50)
     
-    print("\n📂 Please select an Excel, CSV, or ZIP file for sentiment analysis...\n")
-    select_file()
+    try:
+        # Try with the hardcoded path first
+        if os.path.exists(FILE_PATH):
+            print(f"\n✅ Found file at hardcoded path: {FILE_PATH}")
+            process_feedback(FILE_PATH)
+        else:
+            # Fall back to searching for Excel/CSV files in the current directory
+            print(f"\n⚠️ File not found at '{FILE_PATH}'")
+            print("🔍 Searching for feedback files in the current directory...")
+            
+            current_dir = os.path.dirname(__file__)
+            excel_files = [f for f in os.listdir(current_dir) if f.endswith('.xlsx') or f.endswith('.csv')]
+            
+            if excel_files:
+                print(f"\n✅ Found {len(excel_files)} potential feedback file(s):")
+                for i, file in enumerate(excel_files):
+                    print(f"   {i+1}. {file}")
+                
+                file_to_use = os.path.join(current_dir, excel_files[0])
+                print(f"\n🔍 Using file: {file_to_use}")
+                process_feedback(file_to_use)
+            else:
+                print("\n❌ No Excel or CSV files found in the current directory.")
+                print("📝 Please place your feedback file in the same folder as this script or update the FILE_PATH in the code.")
+    
+    except Exception as e:
+        print(f"\n❌ An error occurred: {str(e)}")
+    
+    finally:
+        print("\n" + "=" * 50)
+        print("🏁 Analysis complete")
+        print("\nPress Enter to exit...", end="")
+        input()  # Wait for user input before closing
 
 if __name__ == "__main__":
     main()
